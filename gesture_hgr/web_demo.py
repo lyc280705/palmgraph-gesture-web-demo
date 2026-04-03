@@ -147,7 +147,7 @@ ACTION_DEFINITIONS: List[Dict[str, Any]] = [
         'title': '自定义命令',
         'description': '运行一条本机 shell 命令。',
         'fields': [
-            {'name': 'command', 'label': '命令', 'placeholder': 'open -a Safari / start notepad / xdg-open .'},
+            {'name': 'command', 'label': '命令', 'placeholder': 'macOS: open -a Safari | Windows: start notepad | Linux: xdg-open .'},
         ],
     },
     {
@@ -688,9 +688,9 @@ def _run_applescript_lines(lines: List[str], timeout: float = 8.0) -> Tuple[bool
 def _platform_name() -> str:
     if sys.platform == 'darwin':
         return 'darwin'
-    if sys.platform.startswith('win'):
+    if sys.platform == 'win32':
         return 'windows'
-    if sys.platform.startswith('linux'):
+    if sys.platform == 'linux':
         return 'linux'
     return sys.platform
 
@@ -801,11 +801,11 @@ def _press_windows_vk(vk_code: int, modifiers: Optional[List[int]] = None, repea
     except ImportError:
         return False, 'ctypes is unavailable on this Python runtime.'
 
-    user32 = getattr(ctypes, 'windll', None)
-    if user32 is None or not hasattr(user32, 'user32'):
+    windll = getattr(ctypes, 'windll', None)
+    if windll is None:
         return False, 'Windows keyboard bridge is unavailable on this system.'
 
-    keybd_event = user32.user32.keybd_event
+    keybd_event = windll.user32.keybd_event
     keyup_flag = 0x0002
     modifiers = modifiers or []
     repeat = max(1, min(8, int(repeat)))
@@ -859,10 +859,10 @@ def _run_windows_message_box(title: str, message: str) -> Tuple[bool, str]:
     except ImportError:
         return False, 'ctypes is unavailable on this Python runtime.'
 
-    user32 = getattr(ctypes, 'windll', None)
-    if user32 is None or not hasattr(user32, 'user32'):
+    windll = getattr(ctypes, 'windll', None)
+    if windll is None:
         return False, 'Windows notification bridge is unavailable on this system.'
-    user32.user32.MessageBoxW(None, message, title, 0)
+    windll.user32.MessageBoxW(None, message, title, 0)
     return True, title
 
 
@@ -949,7 +949,7 @@ def _take_screenshot(directory: str) -> Tuple[bool, str]:
             '$graphics.Dispose(); '
             '$bitmap.Dispose()'
         )
-        powershell = shutil.which('powershell') or shutil.which('powershell.exe') or shutil.which('pwsh') or shutil.which('pwsh.exe')
+        powershell = shutil.which('powershell') or shutil.which('pwsh')
         if powershell is None:
             return False, 'Screenshot actions require PowerShell on Windows. Please ensure PowerShell is installed and available in PATH.'
         success, detail = _run_subprocess([powershell, '-NoProfile', '-Command', script, str(out_path)], timeout=15.0)
