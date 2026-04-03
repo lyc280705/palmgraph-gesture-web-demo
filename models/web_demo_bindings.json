@@ -1,5 +1,5 @@
 {
-  "control_enabled": false,
+  "control_enabled": true,
   "cooldown_seconds": 1.2,
   "confidence_threshold": 0.7,
   "trigger_delay_seconds": 0.2,
