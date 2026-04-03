@@ -147,7 +147,7 @@ ACTION_DEFINITIONS: List[Dict[str, Any]] = [
         'title': '自定义命令',
         'description': '运行一条本机 shell 命令。',
         'fields': [
-            {'name': 'command', 'label': '命令', 'placeholder': 'macOS: open -a Safari | Windows: start notepad | Linux: xdg-open .'},
+            {'name': 'command', 'label': '命令', 'placeholder': '例如：xdg-open .'},
         ],
     },
     {
@@ -256,6 +256,9 @@ MEDIA_KEY_TYPES = {
 # macOS CGEvent modifier flag masks
 _CGEVENT_FLAG_CMD = 1 << 20
 _CGEVENT_FLAG_CTRL = 1 << 18
+LINUX_XDOTOOL_ERROR = 'Hotkey and media-key actions require xdotool on Linux. Install it with your package manager (e.g. `sudo apt install xdotool`, `sudo dnf install xdotool`, or `sudo pacman -S xdotool`).'
+LINUX_NOTIFY_ERROR = 'Desktop notifications require notify-send or zenity on Linux. Install libnotify-bin or zenity with your package manager (e.g. `sudo apt install libnotify-bin`, `sudo dnf install libnotify`, or `sudo pacman -S libnotify`).'
+LINUX_SCREENSHOT_ERROR = 'Screenshot actions require gnome-screenshot, scrot, import (ImageMagick), or grim on Linux. Install one with your package manager (e.g. `sudo apt install gnome-screenshot`, `sudo dnf install gnome-screenshot`, or `sudo pacman -S gnome-screenshot`).'
 
 
 def translate_gesture(label: str) -> str:
@@ -692,7 +695,7 @@ def _platform_name() -> str:
         return 'windows'
     if sys.platform == 'linux':
         return 'linux'
-    return sys.platform
+    return 'unsupported'
 
 
 def _parse_modifiers(raw: str, mapping: Dict[str, Any]) -> List[Any]:
@@ -838,7 +841,7 @@ def _send_hotkey(key: str, modifiers: str = '', repeat: int = 1) -> Tuple[bool, 
     if platform_name == 'linux':
         command = shutil.which('xdotool')
         if command is None:
-            return False, 'Hotkey actions require xdotool on Linux. Install it with your package manager (e.g. `sudo apt install xdotool`, `sudo dnf install xdotool`, or `sudo pacman -S xdotool`).'
+            return False, LINUX_XDOTOOL_ERROR
         key_name = _linux_key_name(key)
         if key_name is None:
             return False, f'Unsupported hotkey key: {key}'
@@ -883,7 +886,7 @@ def _send_notification(title: str, message: str) -> Tuple[bool, str]:
         zenity = shutil.which('zenity')
         if zenity is not None:
             return _run_subprocess([zenity, '--info', f'--title={title}', f'--text={message}'])
-        return False, 'Desktop notifications require notify-send or zenity on Linux. Install libnotify-bin or zenity with your package manager (e.g. `sudo apt install libnotify-bin`, `sudo dnf install libnotify`, or `sudo pacman -S libnotify`).'
+        return False, LINUX_NOTIFY_ERROR
 
     return False, f'Unsupported platform: {platform_name}'
 
@@ -910,7 +913,7 @@ def _post_media_key_cross_platform(action_id: str) -> Tuple[bool, str]:
     if platform_name == 'linux':
         command = shutil.which('xdotool')
         if command is None:
-            return False, 'Media-key actions require xdotool on Linux. Install it with your package manager (e.g. `sudo apt install xdotool`, `sudo dnf install xdotool`, or `sudo pacman -S xdotool`).'
+            return False, LINUX_XDOTOOL_ERROR
         media_keys = {
             'volume_up': 'XF86AudioRaiseVolume',
             'volume_down': 'XF86AudioLowerVolume',
@@ -973,7 +976,7 @@ def _take_screenshot(directory: str) -> Tuple[bool, str]:
             last_detail = detail
         if last_detail:
             return False, last_detail
-        return False, 'Screenshot actions require gnome-screenshot, scrot, import (ImageMagick), or grim on Linux. Install one with your package manager (e.g. `sudo apt install gnome-screenshot`, `sudo dnf install gnome-screenshot`, or `sudo pacman -S gnome-screenshot`).'
+        return False, LINUX_SCREENSHOT_ERROR
 
     return False, f'Unsupported platform: {platform_name}'
 
