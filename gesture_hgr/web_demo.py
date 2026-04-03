@@ -687,7 +687,7 @@ def _run_applescript_lines(lines: List[str], timeout: float = 8.0) -> Tuple[bool
 
 def _platform_name() -> str:
     if sys.platform == 'darwin':
-        return 'darwin'
+        return 'macos'
     if sys.platform == 'win32':
         return 'windows'
     if sys.platform == 'linux':
@@ -825,7 +825,7 @@ def _press_windows_vk(vk_code: int, modifiers: Optional[List[int]] = None, repea
 def _send_hotkey(key: str, modifiers: str = '', repeat: int = 1) -> Tuple[bool, str]:
     platform_name = _platform_name()
     repeat = max(1, min(8, int(repeat)))
-    if platform_name == 'darwin':
+    if platform_name == 'macos':
         return _run_applescript_lines(_hotkey_lines(key, modifiers=modifiers, repeat=repeat))
 
     if platform_name == 'windows':
@@ -838,7 +838,7 @@ def _send_hotkey(key: str, modifiers: str = '', repeat: int = 1) -> Tuple[bool, 
     if platform_name == 'linux':
         command = shutil.which('xdotool')
         if command is None:
-            return False, 'Hotkey actions require xdotool on Linux. Install it with your package manager, for example: apt install xdotool.'
+            return False, 'Hotkey actions require xdotool on Linux. Install it with your package manager (for example via apt, dnf, or pacman).'
         key_name = _linux_key_name(key)
         if key_name is None:
             return False, f'Unsupported hotkey key: {key}'
@@ -868,7 +868,7 @@ def _run_windows_message_box(title: str, message: str) -> Tuple[bool, str]:
 
 def _send_notification(title: str, message: str) -> Tuple[bool, str]:
     platform_name = _platform_name()
-    if platform_name == 'darwin':
+    if platform_name == 'macos':
         title = title.replace('"', "'")
         message = message.replace('"', "'")
         return _run_applescript_lines([f'display notification "{message}" with title "{title}"'])
@@ -890,7 +890,7 @@ def _send_notification(title: str, message: str) -> Tuple[bool, str]:
 
 def _post_media_key_cross_platform(action_id: str) -> Tuple[bool, str]:
     platform_name = _platform_name()
-    if platform_name == 'darwin':
+    if platform_name == 'macos':
         return _post_media_key(action_id)
 
     if platform_name == 'windows':
@@ -910,7 +910,7 @@ def _post_media_key_cross_platform(action_id: str) -> Tuple[bool, str]:
     if platform_name == 'linux':
         command = shutil.which('xdotool')
         if command is None:
-            return False, 'Media-key actions require xdotool on Linux. Install it with your package manager, for example: apt install xdotool.'
+            return False, 'Media-key actions require xdotool on Linux. Install it with your package manager (for example via apt, dnf, or pacman).'
         media_keys = {
             'volume_up': 'XF86AudioRaiseVolume',
             'volume_down': 'XF86AudioLowerVolume',
@@ -933,7 +933,7 @@ def _take_screenshot(directory: str) -> Tuple[bool, str]:
     out_path = base_dir / f'gesture-shot-{datetime.now().strftime("%Y%m%d-%H%M%S")}.png'
     platform_name = _platform_name()
 
-    if platform_name == 'darwin':
+    if platform_name == 'macos':
         success, detail = _run_subprocess(['screencapture', '-x', str(out_path)])
         return (True, str(out_path)) if success else (False, detail)
 
@@ -951,7 +951,7 @@ def _take_screenshot(directory: str) -> Tuple[bool, str]:
         )
         powershell = shutil.which('powershell') or shutil.which('pwsh')
         if powershell is None:
-            return False, 'Screenshot actions require PowerShell on Windows. Please ensure PowerShell is installed and available in PATH.'
+            return False, 'PowerShell could not be found in PATH. Ensure powershell.exe or pwsh.exe is accessible on Windows.'
         success, detail = _run_subprocess([powershell, '-NoProfile', '-Command', script, str(out_path)], timeout=15.0)
         return (True, str(out_path)) if success else (False, detail)
 
@@ -973,7 +973,7 @@ def _take_screenshot(directory: str) -> Tuple[bool, str]:
             last_detail = detail
         if last_detail:
             return False, last_detail
-        return False, 'Screenshot actions require gnome-screenshot, scrot, import (ImageMagick), or grim on Linux. Install one with your package manager, for example: apt install gnome-screenshot.'
+        return False, 'Screenshot actions require gnome-screenshot, scrot, import (ImageMagick), or grim on Linux. Install one with your package manager (for example via apt, dnf, or pacman).'
 
     return False, f'Unsupported platform: {platform_name}'
 
@@ -1012,12 +1012,12 @@ def execute_system_action(action_id: str, params: Dict[str, Any]) -> Tuple[bool,
         return _post_media_key_cross_platform('previous_track')
 
     if action_id == 'fullscreen_toggle':
-        if _platform_name() == 'darwin':
+        if _platform_name() == 'macos':
             return _post_keyboard_event(3, _CGEVENT_FLAG_CMD | _CGEVENT_FLAG_CTRL)
         return _send_hotkey('f11')
 
     if action_id == 'stop_key':
-        if _platform_name() == 'darwin':
+        if _platform_name() == 'macos':
             return _post_keyboard_event(53)
         return _send_hotkey('escape')
 
@@ -1041,7 +1041,7 @@ def execute_system_action(action_id: str, params: Dict[str, Any]) -> Tuple[bool,
         return False, detail or f'Exit code {proc.returncode}'
 
     if action_id == 'applescript':
-        if _platform_name() != 'darwin':
+        if _platform_name() != 'macos':
             return False, 'AppleScript is only available on macOS.'
         script = str(params.get('script', '')).strip()
         if not script:
