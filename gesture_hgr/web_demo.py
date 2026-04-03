@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import threading
@@ -46,7 +47,7 @@ ACTION_DEFINITIONS: List[Dict[str, Any]] = [
     {
         'id': 'notify',
         'title': '桌面通知',
-        'description': '弹出一条 macOS 桌面通知。',
+        'description': '在当前系统上弹出一条桌面通知或提示。',
         'fields': [
             {'name': 'title', 'label': '通知标题', 'placeholder': 'PalmGraph-MoE'},
             {'name': 'message', 'label': '通知内容', 'placeholder': '已识别到手势'},
@@ -66,61 +67,61 @@ ACTION_DEFINITIONS: List[Dict[str, Any]] = [
     {
         'id': 'volume_up',
         'title': '系统音量增加',
-        'description': '使用 macOS 系统媒体键增加音量。',
+        'description': '使用当前系统可用的媒体键增加音量。',
         'fields': [],
     },
     {
         'id': 'volume_down',
         'title': '系统音量降低',
-        'description': '使用 macOS 系统媒体键降低音量。',
+        'description': '使用当前系统可用的媒体键降低音量。',
         'fields': [],
     },
     {
         'id': 'mute_toggle',
         'title': '切换静音',
-        'description': '使用 macOS 系统媒体键切换静音。',
+        'description': '使用当前系统可用的媒体键切换静音。',
         'fields': [],
     },
     {
         'id': 'play_pause',
         'title': '播放暂停',
-        'description': '使用 macOS 系统媒体键触发播放/暂停。',
+        'description': '使用当前系统可用的媒体键触发播放/暂停。',
         'fields': [],
     },
     {
         'id': 'media_play',
         'title': '播放',
-        'description': '使用 macOS 系统媒体键触发播放。',
+        'description': '使用当前系统可用的媒体键触发播放。',
         'fields': [],
     },
     {
         'id': 'media_pause',
         'title': '暂停',
-        'description': '使用 macOS 系统媒体键触发暂停。',
+        'description': '使用当前系统可用的媒体键触发暂停。',
         'fields': [],
     },
     {
         'id': 'next_item',
         'title': '下一项',
-        'description': '使用 macOS 系统媒体键发送下一曲。',
+        'description': '使用当前系统可用的媒体键发送下一项。',
         'fields': [],
     },
     {
         'id': 'previous_item',
         'title': '上一项',
-        'description': '使用 macOS 系统媒体键发送上一曲。',
+        'description': '使用当前系统可用的媒体键发送上一项。',
         'fields': [],
     },
     {
         'id': 'fullscreen_toggle',
         'title': '切换全屏',
-        'description': '使用系统 API 发送 Control + Command + F。',
+        'description': '发送当前系统常见的全屏快捷键。',
         'fields': [],
     },
     {
         'id': 'stop_key',
         'title': '停止或返回',
-        'description': '使用系统 API 发送 Escape。',
+        'description': '发送 Escape 以停止、返回或退出全屏。',
         'fields': [],
     },
     {
@@ -146,13 +147,13 @@ ACTION_DEFINITIONS: List[Dict[str, Any]] = [
         'title': '自定义命令',
         'description': '运行一条本机 shell 命令。',
         'fields': [
-            {'name': 'command', 'label': '命令', 'placeholder': 'open -a Safari'},
+            {'name': 'command', 'label': '命令', 'placeholder': 'open -a Safari / start notepad / xdg-open .'},
         ],
     },
     {
         'id': 'applescript',
         'title': '自定义 AppleScript',
-        'description': '运行一段 AppleScript。',
+        'description': '仅 macOS：运行一段 AppleScript。',
         'fields': [
             {
                 'name': 'script',
@@ -187,6 +188,60 @@ MODIFIER_TOKENS = {
     'option': 'option down',
     'alt': 'option down',
     'shift': 'shift down',
+}
+
+WINDOWS_MODIFIER_KEYS = {
+    'command': 0x5B,
+    'cmd': 0x5B,
+    'win': 0x5B,
+    'windows': 0x5B,
+    'control': 0x11,
+    'ctrl': 0x11,
+    'option': 0x12,
+    'alt': 0x12,
+    'shift': 0x10,
+}
+
+WINDOWS_SPECIAL_KEYS = {
+    'space': 0x20,
+    'left': 0x25,
+    'up': 0x26,
+    'right': 0x27,
+    'down': 0x28,
+    'escape': 0x1B,
+    'return': 0x0D,
+    'enter': 0x0D,
+    'tab': 0x09,
+    'delete': 0x2E,
+    'backspace': 0x08,
+    'f11': 0x7A,
+}
+
+LINUX_MODIFIER_TOKENS = {
+    'command': 'super',
+    'cmd': 'super',
+    'win': 'super',
+    'windows': 'super',
+    'control': 'ctrl',
+    'ctrl': 'ctrl',
+    'option': 'alt',
+    'alt': 'alt',
+    'shift': 'shift',
+}
+
+LINUX_SPECIAL_KEYS = {
+    'space': 'space',
+    'left': 'Left',
+    'right': 'Right',
+    'down': 'Down',
+    'up': 'Up',
+    'escape': 'Escape',
+    'return': 'Return',
+    'enter': 'Return',
+    'tab': 'Tab',
+    'delete': 'Delete',
+    'backspace': 'BackSpace',
+    'f11': 'F11',
 }
 
 MEDIA_KEY_TYPES = {
@@ -630,12 +685,22 @@ def _run_applescript_lines(lines: List[str], timeout: float = 8.0) -> Tuple[bool
     return _run_subprocess(command, timeout=timeout)
 
 
-def _parse_modifiers(raw: str) -> List[str]:
+def _platform_name() -> str:
+    if sys.platform == 'darwin':
+        return 'darwin'
+    if sys.platform.startswith('win'):
+        return 'windows'
+    if sys.platform.startswith('linux'):
+        return 'linux'
+    return sys.platform
+
+
+def _parse_modifiers(raw: str, mapping: Dict[str, Any]) -> List[Any]:
     tokens = [item.strip().lower() for item in str(raw or '').split(',') if item.strip()]
-    resolved: List[str] = []
+    resolved: List[Any] = []
     for token in tokens:
-        if token in MODIFIER_TOKENS:
-            resolved.append(MODIFIER_TOKENS[token])
+        if token in mapping:
+            resolved.append(mapping[token])
     return resolved
 
 
@@ -644,7 +709,7 @@ def _hotkey_lines(key: str, modifiers: str = '', repeat: int = 1) -> List[str]:
     if not key:
         raise ValueError('Missing hotkey key.')
     repeat = max(1, min(8, int(repeat)))
-    modifiers_list = _parse_modifiers(modifiers)
+    modifiers_list = _parse_modifiers(modifiers, MODIFIER_TOKENS)
     using = f' using {{{", ".join(modifiers_list)}}}' if modifiers_list else ''
     if key in SPECIAL_KEY_CODES:
         press_line = f'key code {SPECIAL_KEY_CODES[key]}{using}'
@@ -709,62 +774,261 @@ def _post_keyboard_event(keycode: int, flags: int = 0) -> Tuple[bool, str]:
     return True, f'keyboard:{keycode}'
 
 
-def execute_system_action(action_id: str, params: Dict[str, Any]) -> Tuple[bool, str]:
-    if sys.platform != 'darwin' and action_id not in {'noop', 'shell'}:
-        return False, 'Only macOS system actions are supported in this demo.'
+def _windows_key_code(key: str) -> Optional[int]:
+    normalized = str(key or '').strip().lower()
+    if not normalized:
+        return None
+    if normalized in WINDOWS_SPECIAL_KEYS:
+        return WINDOWS_SPECIAL_KEYS[normalized]
+    if len(normalized) == 1 and normalized.isascii() and normalized.isalnum():
+        return ord(normalized.upper())
+    return None
 
+
+def _linux_key_name(key: str) -> Optional[str]:
+    normalized = str(key or '').strip()
+    lowered = normalized.lower()
+    if lowered in LINUX_SPECIAL_KEYS:
+        return LINUX_SPECIAL_KEYS[lowered]
+    if len(normalized) == 1 and normalized.isascii() and normalized.isprintable():
+        return normalized.lower()
+    return None
+
+
+def _press_windows_vk(vk_code: int, modifiers: Optional[List[int]] = None, repeat: int = 1) -> Tuple[bool, str]:
+    try:
+        import ctypes
+    except ImportError:
+        return False, 'ctypes is unavailable on this Python runtime.'
+
+    user32 = getattr(ctypes, 'windll', None)
+    if user32 is None or not hasattr(user32, 'user32'):
+        return False, 'Windows keyboard bridge is unavailable on this system.'
+
+    keybd_event = user32.user32.keybd_event
+    keyup_flag = 0x0002
+    modifiers = modifiers or []
+    repeat = max(1, min(8, int(repeat)))
+
+    for modifier in modifiers:
+        keybd_event(modifier, 0, 0, 0)
+    for _ in range(repeat):
+        keybd_event(vk_code, 0, 0, 0)
+        time.sleep(0.01)
+        keybd_event(vk_code, 0, keyup_flag, 0)
+        time.sleep(0.01)
+    for modifier in reversed(modifiers):
+        keybd_event(modifier, 0, keyup_flag, 0)
+    return True, f'vk:{vk_code}'
+
+
+def _send_hotkey(key: str, modifiers: str = '', repeat: int = 1) -> Tuple[bool, str]:
+    platform_name = _platform_name()
+    repeat = max(1, min(8, int(repeat)))
+    if platform_name == 'darwin':
+        return _run_applescript_lines(_hotkey_lines(key, modifiers=modifiers, repeat=repeat))
+
+    if platform_name == 'windows':
+        vk_code = _windows_key_code(key)
+        if vk_code is None:
+            return False, f'Unsupported hotkey key: {key}'
+        modifier_codes = _parse_modifiers(modifiers, WINDOWS_MODIFIER_KEYS)
+        return _press_windows_vk(vk_code, modifier_codes, repeat=repeat)
+
+    if platform_name == 'linux':
+        command = shutil.which('xdotool')
+        if command is None:
+            return False, 'Hotkey actions require xdotool on Linux.'
+        key_name = _linux_key_name(key)
+        if key_name is None:
+            return False, f'Unsupported hotkey key: {key}'
+        modifier_tokens = _parse_modifiers(modifiers, LINUX_MODIFIER_TOKENS)
+        combo = '+'.join([*modifier_tokens, key_name]) if modifier_tokens else key_name
+        for _ in range(repeat):
+            success, detail = _run_subprocess([command, 'key', '--clearmodifiers', combo])
+            if not success:
+                return False, detail
+        return True, combo
+
+    return False, f'Unsupported platform: {platform_name}'
+
+
+def _run_windows_message_box(title: str, message: str) -> Tuple[bool, str]:
+    try:
+        import ctypes
+    except ImportError:
+        return False, 'ctypes is unavailable on this Python runtime.'
+
+    user32 = getattr(ctypes, 'windll', None)
+    if user32 is None or not hasattr(user32, 'user32'):
+        return False, 'Windows notification bridge is unavailable on this system.'
+    user32.user32.MessageBoxW(None, message, title, 0)
+    return True, title
+
+
+def _send_notification(title: str, message: str) -> Tuple[bool, str]:
+    platform_name = _platform_name()
+    if platform_name == 'darwin':
+        title = title.replace('"', "'")
+        message = message.replace('"', "'")
+        return _run_applescript_lines([f'display notification "{message}" with title "{title}"'])
+
+    if platform_name == 'windows':
+        return _run_windows_message_box(title, message)
+
+    if platform_name == 'linux':
+        notify_send = shutil.which('notify-send')
+        if notify_send is not None:
+            return _run_subprocess([notify_send, title, message])
+        zenity = shutil.which('zenity')
+        if zenity is not None:
+            return _run_subprocess([zenity, '--info', f'--title={title}', f'--text={message}'])
+        return False, 'Desktop notifications require notify-send or zenity on Linux.'
+
+    return False, f'Unsupported platform: {platform_name}'
+
+
+def _post_media_key_cross_platform(action_id: str) -> Tuple[bool, str]:
+    platform_name = _platform_name()
+    if platform_name == 'darwin':
+        return _post_media_key(action_id)
+
+    if platform_name == 'windows':
+        media_vks = {
+            'volume_up': 0xAF,
+            'volume_down': 0xAE,
+            'mute_toggle': 0xAD,
+            'play_pause': 0xB3,
+            'next_track': 0xB0,
+            'previous_track': 0xB1,
+        }
+        vk_code = media_vks.get(action_id)
+        if vk_code is None:
+            return False, f'Unsupported media key action: {action_id}'
+        return _press_windows_vk(vk_code)
+
+    if platform_name == 'linux':
+        command = shutil.which('xdotool')
+        if command is None:
+            return False, 'Media-key actions require xdotool on Linux.'
+        media_keys = {
+            'volume_up': 'XF86AudioRaiseVolume',
+            'volume_down': 'XF86AudioLowerVolume',
+            'mute_toggle': 'XF86AudioMute',
+            'play_pause': 'XF86AudioPlay',
+            'next_track': 'XF86AudioNext',
+            'previous_track': 'XF86AudioPrev',
+        }
+        key_name = media_keys.get(action_id)
+        if key_name is None:
+            return False, f'Unsupported media key action: {action_id}'
+        return _run_subprocess([command, 'key', '--clearmodifiers', key_name])
+
+    return False, f'Unsupported platform: {platform_name}'
+
+
+def _take_screenshot(directory: str) -> Tuple[bool, str]:
+    base_dir = Path(str(directory or '~/Pictures/PalmGraphDemo')).expanduser()
+    ensure_dir(base_dir)
+    out_path = base_dir / f'gesture-shot-{datetime.now().strftime("%Y%m%d-%H%M%S")}.png'
+    platform_name = _platform_name()
+
+    if platform_name == 'darwin':
+        success, detail = _run_subprocess(['screencapture', '-x', str(out_path)])
+        return (True, str(out_path)) if success else (False, detail)
+
+    if platform_name == 'windows':
+        script = (
+            'Add-Type -AssemblyName System.Windows.Forms; '
+            'Add-Type -AssemblyName System.Drawing; '
+            '$bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen; '
+            '$bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height; '
+            '$graphics = [System.Drawing.Graphics]::FromImage($bitmap); '
+            '$graphics.CopyFromScreen($bounds.Left, $bounds.Top, 0, 0, $bitmap.Size); '
+            '$bitmap.Save($args[0], [System.Drawing.Imaging.ImageFormat]::Png); '
+            '$graphics.Dispose(); '
+            '$bitmap.Dispose()'
+        )
+        powershell = shutil.which('powershell') or shutil.which('powershell.exe') or shutil.which('pwsh') or shutil.which('pwsh.exe')
+        if powershell is None:
+            return False, 'Screenshot actions require PowerShell on Windows.'
+        success, detail = _run_subprocess([powershell, '-NoProfile', '-Command', script, str(out_path)], timeout=15.0)
+        return (True, str(out_path)) if success else (False, detail)
+
+    if platform_name == 'linux':
+        screenshot_commands = [
+            ('gnome-screenshot', ['-f', str(out_path)]),
+            ('scrot', [str(out_path)]),
+            ('import', ['-window', 'root', str(out_path)]),
+            ('grim', [str(out_path)]),
+        ]
+        last_detail = ''
+        for name, args in screenshot_commands:
+            command = shutil.which(name)
+            if command is None:
+                continue
+            success, detail = _run_subprocess([command, *args], timeout=15.0)
+            if success:
+                return True, str(out_path)
+            last_detail = detail
+        if last_detail:
+            return False, last_detail
+        return False, 'Screenshot actions require gnome-screenshot, scrot, import, or grim on Linux.'
+
+    return False, f'Unsupported platform: {platform_name}'
+
+
+def execute_system_action(action_id: str, params: Dict[str, Any]) -> Tuple[bool, str]:
     if action_id == 'noop':
         return True, 'Preview only'
 
     if action_id == 'notify':
-        title = str(params.get('title', 'PalmGraph-MoE')).replace('"', "'")
-        message = str(params.get('message', '已识别到手势')).replace('"', "'")
-        return _run_applescript_lines([f'display notification "{message}" with title "{title}"'])
+        title = str(params.get('title', 'PalmGraph-MoE'))
+        message = str(params.get('message', '已识别到手势'))
+        return _send_notification(title, message)
 
     if action_id == 'volume_up':
-        return _post_media_key('volume_up')
+        return _post_media_key_cross_platform('volume_up')
 
     if action_id == 'volume_down':
-        return _post_media_key('volume_down')
+        return _post_media_key_cross_platform('volume_down')
 
     if action_id == 'mute_toggle':
-        return _post_media_key('mute_toggle')
+        return _post_media_key_cross_platform('mute_toggle')
 
     if action_id == 'play_pause':
-        return _post_media_key('play_pause')
+        return _post_media_key_cross_platform('play_pause')
 
     if action_id == 'media_play':
-        return _post_media_key('play_pause')
+        return _post_media_key_cross_platform('play_pause')
 
     if action_id == 'media_pause':
-        return _post_media_key('play_pause')
+        return _post_media_key_cross_platform('play_pause')
 
     if action_id == 'next_item':
-        return _post_media_key('next_track')
+        return _post_media_key_cross_platform('next_track')
 
     if action_id == 'previous_item':
-        return _post_media_key('previous_track')
+        return _post_media_key_cross_platform('previous_track')
 
     if action_id == 'fullscreen_toggle':
-        return _post_keyboard_event(3, _CGEVENT_FLAG_CMD | _CGEVENT_FLAG_CTRL)
+        if _platform_name() == 'darwin':
+            return _post_keyboard_event(3, _CGEVENT_FLAG_CMD | _CGEVENT_FLAG_CTRL)
+        return _send_hotkey('f11')
 
     if action_id == 'stop_key':
-        return _post_keyboard_event(53)
+        if _platform_name() == 'darwin':
+            return _post_keyboard_event(53)
+        return _send_hotkey('escape')
 
     if action_id == 'screenshot':
-        base_dir = Path(str(params.get('directory', '~/Pictures/PalmGraphDemo'))).expanduser()
-        ensure_dir(base_dir)
-        out_path = base_dir / f'gesture-shot-{datetime.now().strftime("%Y%m%d-%H%M%S")}.png'
-        success, detail = _run_subprocess(['screencapture', '-x', str(out_path)])
-        if success:
-            return True, str(out_path)
-        return False, detail
+        return _take_screenshot(str(params.get('directory', '~/Pictures/PalmGraphDemo')))
 
     if action_id == 'hotkey':
         key = str(params.get('key', '')).strip()
         modifiers = str(params.get('modifiers', ''))
         repeat = params.get('repeat', '1')
-        return _run_applescript_lines(_hotkey_lines(key, modifiers=modifiers, repeat=int(repeat or 1)))
+        return _send_hotkey(key, modifiers=modifiers, repeat=int(repeat or 1))
 
     if action_id == 'shell':
         command = str(params.get('command', '')).strip()
@@ -777,6 +1041,8 @@ def execute_system_action(action_id: str, params: Dict[str, Any]) -> Tuple[bool,
         return False, detail or f'Exit code {proc.returncode}'
 
     if action_id == 'applescript':
+        if _platform_name() != 'darwin':
+            return False, 'AppleScript is only available on macOS.'
         script = str(params.get('script', '')).strip()
         if not script:
             return False, 'Missing AppleScript.'
