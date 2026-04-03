@@ -838,7 +838,7 @@ def _send_hotkey(key: str, modifiers: str = '', repeat: int = 1) -> Tuple[bool, 
     if platform_name == 'linux':
         command = shutil.which('xdotool')
         if command is None:
-            return False, 'Hotkey actions require xdotool on Linux.'
+            return False, 'Hotkey actions require xdotool on Linux. Install it with your package manager, for example: apt install xdotool.'
         key_name = _linux_key_name(key)
         if key_name is None:
             return False, f'Unsupported hotkey key: {key}'
@@ -883,7 +883,7 @@ def _send_notification(title: str, message: str) -> Tuple[bool, str]:
         zenity = shutil.which('zenity')
         if zenity is not None:
             return _run_subprocess([zenity, '--info', f'--title={title}', f'--text={message}'])
-        return False, 'Desktop notifications require notify-send or zenity on Linux.'
+        return False, 'Desktop notifications require notify-send or zenity on Linux. Install libnotify-bin or zenity with your package manager.'
 
     return False, f'Unsupported platform: {platform_name}'
 
@@ -910,7 +910,7 @@ def _post_media_key_cross_platform(action_id: str) -> Tuple[bool, str]:
     if platform_name == 'linux':
         command = shutil.which('xdotool')
         if command is None:
-            return False, 'Media-key actions require xdotool on Linux.'
+            return False, 'Media-key actions require xdotool on Linux. Install it with your package manager, for example: apt install xdotool.'
         media_keys = {
             'volume_up': 'XF86AudioRaiseVolume',
             'volume_down': 'XF86AudioLowerVolume',
@@ -951,7 +951,7 @@ def _take_screenshot(directory: str) -> Tuple[bool, str]:
         )
         powershell = shutil.which('powershell') or shutil.which('powershell.exe') or shutil.which('pwsh') or shutil.which('pwsh.exe')
         if powershell is None:
-            return False, 'Screenshot actions require PowerShell on Windows.'
+            return False, 'Screenshot actions require PowerShell on Windows. Please ensure PowerShell is installed and available in PATH.'
         success, detail = _run_subprocess([powershell, '-NoProfile', '-Command', script, str(out_path)], timeout=15.0)
         return (True, str(out_path)) if success else (False, detail)
 
@@ -973,7 +973,7 @@ def _take_screenshot(directory: str) -> Tuple[bool, str]:
             last_detail = detail
         if last_detail:
             return False, last_detail
-        return False, 'Screenshot actions require gnome-screenshot, scrot, import, or grim on Linux.'
+        return False, 'Screenshot actions require gnome-screenshot, scrot, import (ImageMagick), or grim on Linux. Install one with your package manager, for example: apt install gnome-screenshot.'
 
     return False, f'Unsupported platform: {platform_name}'
 
