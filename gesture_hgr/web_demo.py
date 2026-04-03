@@ -256,7 +256,8 @@ MEDIA_KEY_TYPES = {
 # macOS CGEvent modifier flag masks
 _CGEVENT_FLAG_CMD = 1 << 20
 _CGEVENT_FLAG_CTRL = 1 << 18
-LINUX_XDOTOOL_ERROR = 'Hotkey and media-key actions require xdotool on Linux. Install it with your package manager (e.g. `sudo apt install xdotool`, `sudo dnf install xdotool`, or `sudo pacman -S xdotool`).'
+KEY_EVENT_DELAY = 0.01
+LINUX_XDOTOOL_ERROR = 'Hotkey and media key actions require xdotool on Linux. Install it with your package manager (e.g. `sudo apt install xdotool`, `sudo dnf install xdotool`, or `sudo pacman -S xdotool`).'
 LINUX_NOTIFY_ERROR = 'Desktop notifications require notify-send or zenity on Linux. Install libnotify-bin or zenity with your package manager (e.g. `sudo apt install libnotify-bin`, `sudo dnf install libnotify`, or `sudo pacman -S libnotify`).'
 LINUX_SCREENSHOT_ERROR = 'Screenshot actions require gnome-screenshot, scrot, import (ImageMagick), or grim on Linux. Install one with your package manager (e.g. `sudo apt install gnome-screenshot`, `sudo dnf install gnome-screenshot`, or `sudo pacman -S gnome-screenshot`).'
 
@@ -689,13 +690,12 @@ def _run_applescript_lines(lines: List[str], timeout: float = 8.0) -> Tuple[bool
 
 
 def _platform_name() -> str:
-    if sys.platform == 'darwin':
-        return 'macos'
-    if sys.platform == 'win32':
-        return 'windows'
-    if sys.platform == 'linux':
-        return 'linux'
-    return 'unsupported'
+    platform_map = {
+        'darwin': 'macos',
+        'win32': 'windows',
+        'linux': 'linux',
+    }
+    return platform_map.get(sys.platform, 'unsupported')
 
 
 def _parse_modifiers(raw: str, mapping: Dict[str, Any]) -> List[Any]:
@@ -756,7 +756,7 @@ def _post_media_key(action_id: str) -> Tuple[bool, str]:
             -1,
         )
         Quartz.CGEventPost(event_tap, event.CGEvent())
-        time.sleep(0.01)
+        time.sleep(KEY_EVENT_DELAY)
 
     return True, f'media_key:{action_id}'
 
@@ -773,7 +773,7 @@ def _post_keyboard_event(keycode: int, flags: int = 0) -> Tuple[bool, str]:
         if flags:
             Quartz.CGEventSetFlags(event, flags)
         Quartz.CGEventPost(tap, event)
-        time.sleep(0.01)
+        time.sleep(KEY_EVENT_DELAY)
     return True, f'keyboard:{keycode}'
 
 
@@ -783,7 +783,7 @@ def _windows_key_code(key: str) -> Optional[int]:
         return None
     if normalized in WINDOWS_SPECIAL_KEYS:
         return WINDOWS_SPECIAL_KEYS[normalized]
-    if len(normalized) == 1 and normalized.isascii() and normalized.isalnum():
+    if len(normalized) == 1 and normalized.isascii():
         return ord(normalized.upper())
     return None
 
@@ -806,7 +806,7 @@ def _press_windows_vk(vk_code: int, modifiers: Optional[List[int]] = None, repea
 
     windll = getattr(ctypes, 'windll', None)
     if windll is None:
-        return False, 'Windows keyboard API is unavailable (not a Windows system or ctypes limitation).'
+        return False, 'Windows keyboard API is unavailable (not a Windows system).'
 
     keybd_event = windll.user32.keybd_event
     keyup_flag = 0x0002
@@ -817,9 +817,9 @@ def _press_windows_vk(vk_code: int, modifiers: Optional[List[int]] = None, repea
         keybd_event(modifier, 0, 0, 0)
     for _ in range(repeat):
         keybd_event(vk_code, 0, 0, 0)
-        time.sleep(0.01)
+        time.sleep(KEY_EVENT_DELAY)
         keybd_event(vk_code, 0, keyup_flag, 0)
-        time.sleep(0.01)
+        time.sleep(KEY_EVENT_DELAY)
     for modifier in reversed(modifiers):
         keybd_event(modifier, 0, keyup_flag, 0)
     return True, f'vk:{vk_code}'
@@ -864,7 +864,7 @@ def _run_windows_message_box(title: str, message: str) -> Tuple[bool, str]:
 
     windll = getattr(ctypes, 'windll', None)
     if windll is None:
-        return False, 'Windows notification API is unavailable (not a Windows system or ctypes limitation).'
+        return False, 'Windows notification API is unavailable (not a Windows system).'
     windll.user32.MessageBoxW(None, message, title, 0)
     return True, title
 
