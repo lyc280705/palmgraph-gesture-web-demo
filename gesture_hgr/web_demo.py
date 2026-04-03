@@ -803,7 +803,7 @@ def _press_windows_vk(vk_code: int, modifiers: Optional[List[int]] = None, repea
 
     windll = getattr(ctypes, 'windll', None)
     if windll is None:
-        return False, 'Windows keyboard bridge is unavailable on this system.'
+        return False, 'Windows keyboard API is unavailable (not a Windows system or ctypes limitation).'
 
     keybd_event = windll.user32.keybd_event
     keyup_flag = 0x0002
@@ -838,7 +838,7 @@ def _send_hotkey(key: str, modifiers: str = '', repeat: int = 1) -> Tuple[bool, 
     if platform_name == 'linux':
         command = shutil.which('xdotool')
         if command is None:
-            return False, 'Hotkey actions require xdotool on Linux. Install it with your package manager (for example via apt, dnf, or pacman).'
+            return False, 'Hotkey actions require xdotool on Linux. Install it with your package manager (e.g. `sudo apt install xdotool`, `sudo dnf install xdotool`, or `sudo pacman -S xdotool`).'
         key_name = _linux_key_name(key)
         if key_name is None:
             return False, f'Unsupported hotkey key: {key}'
@@ -861,7 +861,7 @@ def _run_windows_message_box(title: str, message: str) -> Tuple[bool, str]:
 
     windll = getattr(ctypes, 'windll', None)
     if windll is None:
-        return False, 'Windows notification bridge is unavailable on this system.'
+        return False, 'Windows notification API is unavailable (not a Windows system or ctypes limitation).'
     windll.user32.MessageBoxW(None, message, title, 0)
     return True, title
 
@@ -883,7 +883,7 @@ def _send_notification(title: str, message: str) -> Tuple[bool, str]:
         zenity = shutil.which('zenity')
         if zenity is not None:
             return _run_subprocess([zenity, '--info', f'--title={title}', f'--text={message}'])
-        return False, 'Desktop notifications require notify-send or zenity on Linux. Install libnotify-bin or zenity with your package manager.'
+        return False, 'Desktop notifications require notify-send or zenity on Linux. Install libnotify-bin or zenity with your package manager (e.g. `sudo apt install libnotify-bin`, `sudo dnf install libnotify`, or `sudo pacman -S libnotify`).'
 
     return False, f'Unsupported platform: {platform_name}'
 
@@ -910,7 +910,7 @@ def _post_media_key_cross_platform(action_id: str) -> Tuple[bool, str]:
     if platform_name == 'linux':
         command = shutil.which('xdotool')
         if command is None:
-            return False, 'Media-key actions require xdotool on Linux. Install it with your package manager (for example via apt, dnf, or pacman).'
+            return False, 'Media-key actions require xdotool on Linux. Install it with your package manager (e.g. `sudo apt install xdotool`, `sudo dnf install xdotool`, or `sudo pacman -S xdotool`).'
         media_keys = {
             'volume_up': 'XF86AudioRaiseVolume',
             'volume_down': 'XF86AudioLowerVolume',
@@ -973,7 +973,7 @@ def _take_screenshot(directory: str) -> Tuple[bool, str]:
             last_detail = detail
         if last_detail:
             return False, last_detail
-        return False, 'Screenshot actions require gnome-screenshot, scrot, import (ImageMagick), or grim on Linux. Install one with your package manager (for example via apt, dnf, or pacman).'
+        return False, 'Screenshot actions require gnome-screenshot, scrot, import (ImageMagick), or grim on Linux. Install one with your package manager (e.g. `sudo apt install gnome-screenshot`, `sudo dnf install gnome-screenshot`, or `sudo pacman -S gnome-screenshot`).'
 
     return False, f'Unsupported platform: {platform_name}'
 

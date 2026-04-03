@@ -41,7 +41,7 @@
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # Windows PowerShell 改用 .venv\Scripts\Activate.ps1
+source .venv/bin/activate
 pip install -U pip
 pip install -r requirements.txt
 ```
