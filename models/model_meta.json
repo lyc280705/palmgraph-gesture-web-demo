@@ -1,0 +1,49 @@
+{
+  "class_names": [
+    "call",
+    "dislike",
+    "fist",
+    "like",
+    "no_gesture",
+    "ok",
+    "palm",
+    "peace"
+  ],
+  "label_to_id": {
+    "call": 0,
+    "dislike": 1,
+    "fist": 2,
+    "like": 3,
+    "no_gesture": 4,
+    "ok": 5,
+    "palm": 6,
+    "peace": 7
+  },
+  "id_to_label": {
+    "0": "call",
+    "1": "dislike",
+    "2": "fist",
+    "3": "like",
+    "4": "no_gesture",
+    "5": "ok",
+    "6": "palm",
+    "7": "peace"
+  },
+  "command_map": {
+    "call": "wake_video_control",
+    "dislike": "volume_down",
+    "fist": "play_pause",
+    "like": "volume_up",
+    "no_gesture": "idle",
+    "ok": "fullscreen_toggle",
+    "palm": "stop",
+    "peace": "next_video"
+  },
+  "landmarks_dim": 63,
+  "geom_dim": 79,
+  "num_classes": 8,
+  "rejection_threshold": 0.45000000000000007,
+  "model_name": "palmgraph_moe",
+  "param_count": 370767,
+  "quantized_model": "model.int8.onnx"
+}

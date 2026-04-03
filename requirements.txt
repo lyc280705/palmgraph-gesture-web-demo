@@ -1,0 +1,8 @@
+Flask>=3.0.0
+mediapipe>=0.10.14,<0.11
+numpy>=1.26.0
+onnxruntime>=1.18.0
+opencv-python>=4.10.0
+pyobjc-core>=10.3; platform_system == "Darwin"
+pyobjc-framework-Cocoa>=10.3; platform_system == "Darwin"
+pyobjc-framework-Quartz>=10.3; platform_system == "Darwin"

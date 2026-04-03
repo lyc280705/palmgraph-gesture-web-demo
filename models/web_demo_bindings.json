@@ -1,0 +1,53 @@
+{
+  "control_enabled": false,
+  "cooldown_seconds": 1.2,
+  "confidence_threshold": 0.7,
+  "trigger_delay_seconds": 0.2,
+  "bindings": {
+    "call": {
+      "enabled": true,
+      "action_id": "toggle_control_with_notice",
+      "params": {
+        "title": "PalmGraph-MoE",
+        "enabled_message": "手势控制已启动",
+        "disabled_message": "手势控制已关闭",
+        "lockout_seconds": "2.8"
+      }
+    },
+    "dislike": {
+      "enabled": true,
+      "action_id": "volume_down",
+      "params": {}
+    },
+    "fist": {
+      "enabled": true,
+      "action_id": "mute_toggle",
+      "params": {}
+    },
+    "like": {
+      "enabled": true,
+      "action_id": "volume_up",
+      "params": {}
+    },
+    "no_gesture": {
+      "enabled": false,
+      "action_id": "noop",
+      "params": {}
+    },
+    "ok": {
+      "enabled": true,
+      "action_id": "fullscreen_toggle",
+      "params": {}
+    },
+    "palm": {
+      "enabled": true,
+      "action_id": "play_pause",
+      "params": {}
+    },
+    "peace": {
+      "enabled": true,
+      "action_id": "next_item",
+      "params": {}
+    }
+  }
+}

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PalmGraph-MoE 手势总控台</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero-card">
+        <div class="hero-copy">
+          <p class="eyebrow">PalmGraph-MoE 实时演示</p>
+          <h1>手势控制台</h1>
+          <p class="hero-text">
+            实时手势识别 → 系统级控制，全部使用 macOS 原生系统 API，无需辅助工具。
+          </p>
+        </div>
+        <div class="hero-badges">
+          <div class="metric-pill">
+            <span class="metric-label">模型</span>
+            <strong id="modelName">PalmGraph-MoE / INT8 ONNX</strong>
+          </div>
+          <div class="metric-pill">
+            <span class="metric-label">参数量</span>
+            <strong id="paramCount">-</strong>
+          </div>
+        </div>
+      </header>
+
+      <main class="dashboard-grid">
+        <section class="panel video-panel">
+          <div class="panel-head">
+            <div>
+              <p class="section-kicker">实时画面</p>
+              <h2>摄像头预览</h2>
+            </div>
+            <div class="status-cluster">
+              <span id="cameraBadge" class="badge badge-muted">等待连接</span>
+              <span id="controlBadge" class="badge badge-live">控制已开启</span>
+            </div>
+          </div>
+          <div class="video-frame-wrap">
+            <img id="videoFeed" class="video-feed" src="/stream.mjpg" alt="实时手势视频流" />
+          </div>
+          <div class="video-overlay video-overlay-docked">
+            <div>
+              <span class="overlay-label">稳定手势</span>
+              <strong id="gestureZh">无手势</strong>
+              <span id="gestureEn" class="overlay-sub">no_gesture</span>
+            </div>
+            <div>
+              <span class="overlay-label">置信度</span>
+              <strong id="gestureConf">1.00</strong>
+            </div>
+            <div>
+              <span class="overlay-label">FPS</span>
+              <strong id="fpsText">0.0</strong>
+            </div>
+          </div>
+          <div class="status-strip">
+            <div class="status-card active">
+              <span>当前系统动作</span>
+              <strong id="bindingTitle">无手势</strong>
+            </div>
+            <div class="status-card">
+              <span>原始候选</span>
+              <strong id="rawGesture">no_gesture</strong>
+            </div>
+            <div class="status-card">
+              <span>识别状态</span>
+              <strong id="detectState">未检测到手</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel control-panel">
+          <div class="panel-head compact">
+            <div>
+              <p class="section-kicker">全局设置</p>
+              <h2>执行开关</h2>
+            </div>
+            <button id="saveConfigBtn" class="action-button">保存映射</button>
+          </div>
+
+          <div class="toolbar-grid">
+            <label class="toggle-card">
+              <span>启用系统控制</span>
+              <input id="controlEnabled" type="checkbox" checked />
+            </label>
+            <label class="cooldown-card">
+              <span>动作冷却秒数</span>
+              <input id="cooldownInput" type="number" min="0.2" max="10" step="0.1" value="1.2" />
+            </label>
+            <label class="cooldown-card">
+              <span>置信度阈值</span>
+              <input id="confThreshold" type="number" min="0" max="1" step="0.05" value="0.70" />
+            </label>
+            <label class="cooldown-card">
+              <span>触发延时秒数</span>
+              <input id="triggerDelayInput" type="number" min="0" max="2" step="0.05" value="0.20" />
+            </label>
+          </div>
+
+          <div class="model-switch-card">
+            <div class="model-switch-copy">
+              <span>推理模型切换</span>
+              <strong id="activeModelText">INT8 ONNX</strong>
+            </div>
+            <div class="model-switch-row">
+              <select id="modelSelect" aria-label="选择推理模型">
+                <option value="model.int8.onnx" selected>INT8 ONNX | model.int8.onnx</option>
+                <option value="model.onnx">FP32 ONNX | model.onnx</option>
+              </select>
+              <button id="switchModelBtn" class="ghost-button" type="button">切换模型</button>
+            </div>
+            <div id="modelSwitchNote" class="model-switch-note">默认使用 INT8 ONNX，可随时切换回 FP32 ONNX。</div>
+          </div>
+
+          <div class="hint-box">
+            手势稳定后会先等待 0.2 秒再触发，置信度低于阈值时不执行。若要重复触发同一手势，先回到“无控制”状态。
+          </div>
+
+          <div class="mapping-head">
+            <div>
+              <p class="section-kicker">映射编辑</p>
+              <h2>自定义手势系统控制</h2>
+            </div>
+          </div>
+          <div id="mappingList" class="mapping-list"></div>
+        </section>
+
+        <section class="panel event-panel">
+          <div class="panel-head compact">
+            <div>
+              <p class="section-kicker">动作回放</p>
+              <h2>最近执行记录</h2>
+            </div>
+          </div>
+          <div id="actionLog" class="log-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <template id="mappingTemplate">
+      <article class="mapping-card">
+        <div class="mapping-topline">
+          <div>
+            <span class="gesture-cn"></span>
+            <span class="gesture-en"></span>
+          </div>
+          <label class="inline-switch">
+            <span>启用</span>
+            <input class="binding-enabled" type="checkbox" />
+          </label>
+        </div>
+        <div class="mapping-grid">
+          <label>
+            <span>动作类型</span>
+            <select class="action-select"></select>
+          </label>
+          <div class="params-host"></div>
+        </div>
+        <div class="mapping-actions">
+          <button class="ghost-button test-button" type="button">测试动作</button>
+          <span class="mapping-preview"></span>
+        </div>
+      </article>
+    </template>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
