@@ -27,14 +27,15 @@
 
 ## 环境要求
 
-- macOS
+- macOS / Windows / Linux
 - Python 3.10 或 3.11
 - 默认使用本机摄像头
 
 说明：
 
 - 首次运行时，如果本地没有 MediaPipe 的 hand_landmarker.task，程序会自动下载到默认缓存位置。
-- 系统级动作通过 macOS 原生能力触发；如果不需要控制动作，也可以只把它当作识别演示界面使用。
+- 系统级动作会按当前操作系统选择对应实现；如果不需要控制动作，也可以只把它当作识别演示界面使用。
+- Linux 下的通知、快捷键、媒体键和截图动作依赖系统里可用的桌面命令（如 `notify-send`、`xdotool`、`gnome-screenshot` / `scrot` / `import` / `grim`）。
 
 ## 安装
 
@@ -44,6 +45,11 @@ source .venv/bin/activate
 pip install -U pip
 pip install -r requirements.txt
 ```
+
+激活虚拟环境示例：
+
+- macOS / Linux：`source .venv/bin/activate`
+- Windows PowerShell：`.venv\Scripts\Activate.ps1`
 
 ## 启动演示
 
